@@ -8,10 +8,18 @@ const pick = <T,>(a: T[]) => a[Math.floor(rand() * a.length)];
 const between = (lo: number, hi: number, step = 50) => Math.round((lo + rand() * (hi - lo)) / step) * step;
 
 const SOURCES: Product['source'][] = ['Myntra', 'Amazon Fashion', 'Ajio', 'Nykaa Fashion', 'Tata CLiQ'];
-const SRC_URL: Record<Product['source'], string> = {
-  Myntra: 'https://www.myntra.com/', 'Amazon Fashion': 'https://www.amazon.in/fashion', Ajio: 'https://www.ajio.com/',
-  'Nykaa Fashion': 'https://www.nykaafashion.com/', 'Tata CLiQ': 'https://www.tatacliq.com/',
-};
+/** Deep link to the store's own search results for this exact outfit (colour + style), not its homepage. */
+export function storeSearchUrl(source: Product['source'], query: string, gender: Gender): string {
+  const q = `${query} ${gender === 'men' ? 'for men' : gender === 'women' ? 'for women' : ''}`.trim().toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ');
+  const e = encodeURIComponent(q);
+  switch (source) {
+    case 'Myntra': return `https://www.myntra.com/${q.replace(/ /g, '-')}?rawQuery=${e}`;
+    case 'Amazon Fashion': return `https://www.amazon.in/s?k=${e.replace(/%20/g, '+')}&i=apparel`;
+    case 'Ajio': return `https://www.ajio.com/search/?text=${e}`;
+    case 'Nykaa Fashion': return `https://www.nykaafashion.com/catalogsearch/result/?q=${e}`;
+    case 'Tata CLiQ': return `https://www.tatacliq.com/search/?searchCategory=all&text=${e}`;
+  }
+}
 // [name, hex]
 const COLORS: [string, string, string][] = [
   ['Marigold', '#F2A20C', '#7A1F2B'], ['Maroon', '#7A1F2B', '#D4A64A'], ['Emerald', '#0F6B4F', '#E8C872'], ['Ivory', '#F6EEDD', '#B8862F'],
@@ -74,7 +82,7 @@ let n = 1;
     const occasions = [...new Set([...t.occ.filter(() => rand() > 0.25), t.occ[0]])];
     CATALOG.push({
       id, name: `${cn} ${name}`, brand, category: cat, gender: t.gender, price: Math.max(price, 799), mrp: Math.round((price * discount) / 100) * 100 - 1,
-      source, url: `${SRC_URL[source]}?demo=${id}`, colors: [c1, c2], accent: c2, fabric: pick(FABRICS[cat]), occasions,
+      source, url: storeSearchUrl(source, `${cn} ${name}`, t.gender), colors: [c1, c2], accent: c2, fabric: pick(FABRICS[cat]), occasions,
       formality: Math.round(t.formality[0] + rand() * (t.formality[1] - t.formality[0])),
       garment: { kind: t.kind, length: t.length[0] + rand() * (t.length[1] - t.length[0]) },
       rating: Math.round((3.8 + rand() * 1.1) * 10) / 10, tags: [pick(TAGS[cat]), cn.toLowerCase(), pick(FABRICS[cat]).toLowerCase()],

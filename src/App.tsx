@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Gender, Measurements, Prefs, Product, UnitSystem } from './lib/types';
 import { DEFAULTS } from './lib/measure';
 import { recommend } from './lib/recommend';
@@ -20,6 +20,10 @@ export default function App() {
   const [gender, setGender] = useState<Gender | 'all'>('all');
   const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS);
   const [selected, setSelected] = useState<Product | null>(null);
+  const [saved, setSaved] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('chehra.saved') || '[]'); } catch { return []; } });
+  useEffect(() => { try { localStorage.setItem('chehra.saved', JSON.stringify(saved)); } catch { /* private mode */ } }, [saved]);
+  const toggleSave = (id: string) => setSaved(v => (v.includes(id) ? v.filter(x => x !== id) : [...v, id]));
+  useEffect(() => { window.scrollTo({ top: 0 }); }, [step]);
   const recs = useMemo(() => recommend(m, prefs, gender), [m, prefs, gender]);
   const idx = STEPS.findIndex(s => s.id === step);
   const [reached, setReached] = useState(0);
@@ -41,11 +45,12 @@ export default function App() {
           ))}
         </nav>
       </header>
+      <div className="toran" aria-hidden />
       <main>
-        {step === 'intake' && <Intake unit={unit} setUnit={setUnit} m={m} setM={setM} gender={gender} setGender={setGender} onNext={() => setStep('questions')} />}
+        {step === 'intake' && <Intake unit={unit} setUnit={setUnit} m={m} setM={setM} gender={gender} setGender={setGender} onNext={() => setStep('questions')} onOccasion={o => { setPrefs({ ...prefs, occasion: o }); }} occasion={prefs.occasion} />}
         {step === 'questions' && <Questionnaire prefs={prefs} setPrefs={setPrefs} onBack={() => setStep('intake')} onNext={() => setStep('results')} />}
-        {step === 'results' && <Results recs={recs} unit={unit} gender={gender} prefs={prefs} onBack={() => setStep('questions')} onTry={p => { setSelected(p); setStep('trial'); }} />}
-        {step === 'trial' && selected && <TrialRoom product={selected} m={m} unit={unit} recs={recs} onBack={() => setStep('results')} onPick={setSelected} />}
+        {step === 'results' && <Results recs={recs} unit={unit} gender={gender} prefs={prefs} onBack={() => setStep('questions')} onTry={p => { setSelected(p); setStep('trial'); }} saved={saved} toggleSave={toggleSave} />}
+        {step === 'trial' && selected && <TrialRoom product={selected} m={m} unit={unit} recs={recs} onBack={() => setStep('results')} onPick={setSelected} saved={saved} toggleSave={toggleSave} />}
       </main>
       <footer className="foot">
         <span>चेहरा · Made for India's festive, formal & everyday wardrobes.</span>
