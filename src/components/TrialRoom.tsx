@@ -12,13 +12,24 @@ import { productImage } from '../lib/productImage';
 import { fitClass, inr } from './Results';
 
 const TONES = ['#EAD9C4', '#D9B38C', '#B98660', '#8A5A3C', '#5C3A26'];
-interface P { product: Product; m: Measurements; unit: UnitSystem; recs: Rec[]; onBack: () => void; onPick: (p: Product) => void }
+const SCENES = [['studio', 'Studio'], ['mandap', 'Mandap'], ['haveli', 'Haveli night']] as const;
+const LOOK: Record<string, string[]> = {
+  lehenga: ['Kundan choker with matching maang tikka', 'Embellished juttis or block heels', 'A potli bag in the border colour'],
+  saree: ['Temple-gold jhumkas and a slim waist chain', 'Kolhapuri heels', 'Fresh gajra in a low bun'],
+  kurta: ['Oxidised silver jhumkas or a simple watch', 'Kolhapuri chappals or mojaris', 'A contrast dupatta or Nehru jacket'],
+  sherwani: ['Safa or pagdi with a kalgi brooch', 'Embroidered mojaris', 'A pearl mala and a pocket square'],
+  western: ['A slim belt and minimal studs', 'Loafers or strappy heels', 'A structured tote or leather strap watch'],
+  fusion: ['Statement chandbalis', 'Metallic flats or brogues', 'A slim embroidered belt'],
+};
+interface P { product: Product; m: Measurements; unit: UnitSystem; recs: Rec[]; onBack: () => void; onPick: (p: Product) => void; saved: string[]; toggleSave: (id: string) => void }
 
 function dispose(o: THREE.Object3D) {
   o.traverse((x: any) => { x.geometry?.dispose?.(); const ms = Array.isArray(x.material) ? x.material : x.material ? [x.material] : []; ms.forEach((mt: any) => { mt.map?.dispose?.(); mt.dispose?.(); }); });
 }
 
-export default function TrialRoom({ product, m, unit, recs, onBack, onPick }: P) {
+export default function TrialRoom({ product, m, unit, recs, onBack, onPick, saved, toggleSave }: P) {
+  const [scene, setScene] = useState<string>('studio');
+  const isSaved = saved.includes(product.id);
   const mount = useRef<HTMLDivElement>(null);
   const three = useRef<{ scene: THREE.Scene; figure: THREE.Group; camera: THREE.PerspectiveCamera; controls: OrbitControls } | null>(null);
   const [tone, setTone] = useState(TONES[1]);
@@ -64,18 +75,32 @@ export default function TrialRoom({ product, m, unit, recs, onBack, onPick }: P)
     t.camera.position.copy(t.controls.target).addScaledVector(dir.normalize(), dist); t.controls.update();
   }, [m, product, tone, dressed, failed]);
 
+  const saveLook = () => {
+    const cv = mount.current?.querySelector('canvas'); if (!cv) return;
+    const out = document.createElement('canvas'); out.width = cv.width; out.height = cv.height; const g = out.getContext('2d')!;
+    const grad = g.createRadialGradient(out.width / 2, out.height * 0.3, 0, out.width / 2, out.height * 0.3, out.height);
+    const stops = scene === 'haveli' ? ['#3A2350', '#1B0F2A', '#0B0612'] : scene === 'mandap' ? ['#FFE6B0', '#F2A65A', '#B3261E'] : ['#FFF6E0', '#F7DFB4', '#E9BE7E'];
+    stops.forEach((c, i) => grad.addColorStop(i / 2, c)); g.fillStyle = grad; g.fillRect(0, 0, out.width, out.height); g.drawImage(cv, 0, 0);
+    g.fillStyle = scene === 'haveli' ? '#F6E3B4' : '#5A1220'; g.font = `600 ${Math.round(out.width / 34)}px Georgia, serif`;
+    g.fillText(`Chehra · ${product.name} · stylized fit preview`, out.width * 0.035, out.height - out.width * 0.03);
+    const a = document.createElement('a'); a.download = `chehra-${product.id}.png`; a.href = out.toDataURL('image/png'); a.click();
+  };
   const others = recs.filter(r => r.product.id !== product.id).slice(0, 10);
   return (
     <section className="page trial">
       <div className="stage-wrap">
         <div className="stage-frame">
-        <div className="stage" ref={mount} aria-label="3D fit preview. Drag to rotate.">
+        <div className={`stage scene-${scene}`} ref={mount} aria-label="3D fit preview. Drag to rotate.">
           {failed && <p className="err pad">3D preview needs WebGL, which isn't available in this browser.</p>}
         </div>
         <div className="stage-top"><span className="pill">Stylized fit preview</span><span className="hint">Drag to rotate · pinch or scroll to zoom</span></div>
         <div className="stage-bottom">
           <div className="tones" role="radiogroup" aria-label="Mannequin tone">{TONES.map(t => <button key={t} role="radio" aria-checked={tone === t} className={tone === t ? 'on' : ''} style={{ background: t }} onClick={() => setTone(t)} aria-label={`Tone ${t}`} />)}</div>
-          <button className="btn ghost sm" onClick={() => setDressed(!dressed)}>{dressed ? 'Show figure only' : 'Dress figure'}</button>
+          <div className="row gap">
+            <div className="seg mini" role="radiogroup" aria-label="Backdrop">{SCENES.map(([id, l]) => <button key={id} role="radio" aria-checked={scene === id} className={scene === id ? 'on' : ''} onClick={() => setScene(id)}>{l}</button>)}</div>
+            <button className="btn ghost sm" onClick={() => setDressed(!dressed)}>{dressed ? 'Figure only' : 'Dress figure'}</button>
+            <button className="btn ghost sm" onClick={saveLook}>⤓ Save look</button>
+          </div>
         </div>
         </div>
         <p className="disclaimer">A stylized mannequin shaped from your measurement ratios — not a photoreal try-on of you or your photo. Drape, colour and fit are indicative.</p>
@@ -100,8 +125,13 @@ export default function TrialRoom({ product, m, unit, recs, onBack, onPick }: P)
           <table><thead><tr><th>Size</th><th>Chest</th><th>Waist</th><th>Hip</th><th>Shoulder</th></tr></thead>
             <tbody>{chart.map(r => <tr key={r.size} className={r.size === fit.size ? 'on' : ''}><td>{r.size}</td><td>{fmtLen(r.chest, unit)}</td><td>{fmtLen(r.waist, unit)}</td><td>{fmtLen(r.hip, unit)}</td><td>{fmtLen(r.shoulder, unit)}</td></tr>)}</tbody></table>
         </details>
-        <a className="btn primary block" href={product.url} target="_blank" rel="noopener noreferrer">Visit {product.source} ↗</a>
-        <p className="muted small center">Demo link — opens the store's homepage, not a live listing.</p>
+        <div className="row gap cta">
+          <a className="btn primary grow" href={product.url} target="_blank" rel="noopener noreferrer">Find this style on {product.source} ↗</a>
+          <button className={`btn ghost ${isSaved ? 'saved' : ''}`} onClick={() => toggleSave(product.id)} aria-pressed={isSaved}>{isSaved ? '♥ Saved' : '♡ Save'}</button>
+        </div>
+        <p className="muted small">Opens {product.source}'s search results for this colour and style. This demo listing itself is not a real product page.</p>
+        <h4>Complete the look</h4>
+        <ul className="look">{LOOK[product.category].map(t => <li key={t}>{t}</li>)}</ul>
         <h4>Try another</h4>
         <div className="strip">{others.map(r => <button key={r.product.id} onClick={() => onPick(r.product)} title={r.product.name}><img src={productImage(r.product)} alt={r.product.name} /></button>)}</div>
       </aside>

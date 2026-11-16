@@ -11,9 +11,16 @@ Indian fashion discovery, sizing and virtual trial room assistant. Everything ru
 
 ## About the data
 
-The catalog (`src/data/catalog.ts`) is a **curated demo dataset** of 170 synthetic listings. Brands, prices, ratings and size charts are fictional. "Source" tags name the kind of store an item would come from, and outbound links open that store's homepage, not a real listing. Product illustrations are generated SVGs.
+The catalog (`src/data/catalog.ts`) is a **curated demo dataset** of 170 synthetic listings. Brands, prices, ratings and size charts are fictional. "Source" tags name the kind of store an item would come from. Each outbound link opens that store's own search results for the same colour and style (`storeSearchUrl` in `src/data/catalog.ts`), because the demo listings have no real product page. Product pictures are generated SVG illustrations, not store photographs.
 
 The trial room is a **stylized fit preview**, not a photoreal try-on.
+
+## Extras
+
+- Saved outfits (♥) are kept in `localStorage`.
+- Search and a "Chehra's pick" spotlight on the results page.
+- Trial room backdrops (Studio, Mandap, Haveli night), "Save look" PNG export and "Complete the look" styling notes.
+- `public/hero.jpg` is the homepage photograph supplied by the project owner.
 
 ## Develop
 
